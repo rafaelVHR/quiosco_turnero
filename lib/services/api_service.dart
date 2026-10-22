@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../config.dart';
 import '../models/tramite.dart';
+import '../models/turno.dart';
 
 class ApiException implements Exception {
   final String mensaje;
@@ -24,22 +25,9 @@ class ApiService {
         'Content-Type': 'application/json',
       };
 
-  static Future<List<Tramite>> obtenerTramites() async {
+  static Future<T> _ejecutar<T>(Future<T> Function() accion) async {
     try {
-      final resp = await http
-          .get(Uri.parse('${Config.apiUrl}/api/tramites'), headers: _headers)
-          .timeout(_timeout);
-
-      if (resp.statusCode != 200) {
-        throw ApiException(
-            'El servidor respondió con un error (${resp.statusCode}).');
-      }
-
-      final data = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
-      final lista = data['tramites'] as List;
-      return lista
-          .map((e) => Tramite.fromJson(e as Map<String, dynamic>))
-          .toList();
+      return await accion();
     } on ApiException {
       rethrow;
     } on TimeoutException {
@@ -52,5 +40,46 @@ class ApiService {
       debugPrint('Error real: $e');
       throw ApiException('No se pudo leer la respuesta del servidor.');
     }
+  }
+
+  static Future<List<Tramite>> obtenerTramites() {
+    return _ejecutar(() async {
+      final resp = await http
+          .get(Uri.parse('${Config.apiUrl}/api/tramites'), headers: _headers)
+          .timeout(_timeout);
+
+      if (resp.statusCode != 200) {
+        throw ApiException(
+            'El servidor respondió con un error (${resp.statusCode}).');
+      }
+
+      final data =
+          jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+      final lista = data['tramites'] as List;
+      return lista
+          .map((e) => Tramite.fromJson(e as Map<String, dynamic>))
+          .toList();
+    });
+  }
+
+  static Future<Turno> emitirTurno(int idTramite) {
+    return _ejecutar(() async {
+      final resp = await http
+          .post(
+            Uri.parse('${Config.apiUrl}/api/turnos'),
+            headers: _headers,
+            body: jsonEncode({'id_tramite': idTramite, 'es_prioritario': false}),
+          )
+          .timeout(_timeout);
+
+      if (resp.statusCode != 201) {
+        throw ApiException(
+            'El servidor respondió con un error (${resp.statusCode}).');
+      }
+
+      final data =
+          jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+      return Turno.fromJson(data['turno'] as Map<String, dynamic>);
+    });
   }
 }

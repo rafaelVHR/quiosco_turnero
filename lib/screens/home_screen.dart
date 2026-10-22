@@ -6,6 +6,8 @@ import '../models/tramite.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
 import '../utils/fechas.dart';
+import 'confirmacion_screen.dart';
+import '../services/servicio_impresion.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,6 +18,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late Future<List<Tramite>> _tramites;
+  bool _emitiendo = false;
 
   @override
   void initState() {
@@ -29,77 +32,144 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _reintentar() => setState(_cargar);
 
-  void _alTocar(Tramite t) {
-    debugPrint('Tocó: ${t.moduloNombre} (id_tramite ${t.id})');
+  Future<void> _alTocar(Tramite t) async {
+    if (_emitiendo) return;
+    setState(() => _emitiendo = true);
+    try {
+      final turno = await ApiService.emitirTurno(t.id);
+      unawaited(ServicioImpresion.imprimir(turno));
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => ConfirmacionScreen(turno: turno)),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      await _mostrarError(e.mensaje);
+    } catch (_) {
+      if (!mounted) return;
+      await _mostrarError('Ocurrió un problema inesperado.');
+    } finally {
+      if (mounted) setState(() => _emitiendo = false);
+    }
+  }
+
+  Future<void> _mostrarError(String mensaje) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('No se pudo generar tu turno'),
+        content: Text(
+          '$mensaje\n\nIntenta de nuevo o solicita apoyo al personal de la sucursal.',
+          style: const TextStyle(fontSize: 18),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text('Entendido', style: TextStyle(fontSize: 18)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
+      body: Stack(
+        fit: StackFit.expand,
         children: [
-          const _Encabezado(),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '¿Qué trámite necesitas?',
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w700,
-                      color: Tema.texto,
+          Column(
+            children: [
+              const _Encabezado(),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '¿Qué trámite necesitas?',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w700,
+                          color: Tema.texto,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Selecciona el área que corresponde a tu visita',
+                        style: TextStyle(fontSize: 17, color: Tema.textoSuave),
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: FutureBuilder<List<Tramite>>(
+                          future: _tramites,
+                          builder: (context, snap) {
+                            if (snap.connectionState != ConnectionState.done) {
+                              return const Center(
+                                  child: CircularProgressIndicator());
+                            }
+                            if (snap.hasError) {
+                              final e = snap.error;
+                              return _Error(
+                                mensaje: e is ApiException
+                                    ? e.mensaje
+                                    : 'Ocurrió un problema inesperado.',
+                                onReintentar: _reintentar,
+                              );
+                            }
+                            final lista = snap.data!;
+                            if (lista.isEmpty) {
+                              return _Error(
+                                mensaje:
+                                    'No hay trámites disponibles por el momento.',
+                                onReintentar: _reintentar,
+                              );
+                            }
+                            return _Mosaicos(
+                                tramites: lista, alTocar: _alTocar);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(24, 4, 24, 28),
+                child: Text(
+                  'Sistema de Gestión de Filas y Turnero Digital  •  Cooperativa Red Eco de la Montaña',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: Tema.textoSuave),
+                ),
+              ),
+            ],
+          ),
+          if (_emitiendo)
+            Container(
+              color: Colors.black38,
+              child: const Center(
+                child: Card(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 20),
+                        Text(
+                          'Generando tu turno...',
+                          style: TextStyle(fontSize: 22),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Selecciona el área que corresponde a tu visita',
-                    style: TextStyle(fontSize: 17, color: Tema.textoSuave),
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: FutureBuilder<List<Tramite>>(
-                      future: _tramites,
-                      builder: (context, snap) {
-                        if (snap.connectionState != ConnectionState.done) {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        }
-                        if (snap.hasError) {
-                          final e = snap.error;
-                          return _Error(
-                            mensaje: e is ApiException
-                                ? e.mensaje
-                                : 'Ocurrió un problema inesperado.',
-                            onReintentar: _reintentar,
-                          );
-                        }
-                        final lista = snap.data!;
-                        if (lista.isEmpty) {
-                          return _Error(
-                            mensaje:
-                                'No hay trámites disponibles por el momento.',
-                            onReintentar: _reintentar,
-                          );
-                        }
-                        return _Mosaicos(tramites: lista, alTocar: _alTocar);
-                      },
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(24, 4, 24, 28),
-            child: Text(
-              'Sistema de Gestión de Filas y Turnero Digital  •  Cooperativa Red Eco de la Montaña',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Tema.textoSuave),
-            ),
-          ),
         ],
       ),
     );

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart' show GoogleFonts;
 
+import '../services/servicio_impresion.dart';
 import '../config.dart';
 import '../models/turno.dart';
 import '../theme.dart';
@@ -243,6 +244,7 @@ class _ConfirmacionScreenState extends State<ConfirmacionScreen> {
                             fontSize: 22, fontWeight: FontWeight.w700),
                       ),
                     ),
+                    
                     const SizedBox(height: 12),
                     Text(
                       'Volviendo al inicio en $_restan s',

@@ -55,8 +55,8 @@ class ConstructorTicket {
 
   ConstructorTicket._();
 
-  static TicketImpreso construir(Turno turno) {
-    return ConstructorTicket._()._armar(turno);
+    static TicketImpreso construir(Turno turno, {List<int>? logo}) {
+    return ConstructorTicket._()._armar(turno, logo);
   }
 
   static String _dos(int n) => n.toString().padLeft(2, '0');
@@ -113,7 +113,7 @@ class ConstructorTicket {
     _linea('-' * (_columnas - 2));
   }
 
-  TicketImpreso _armar(Turno t) {
+    TicketImpreso _armar(Turno t, List<int>? logo) {
     final d = t.emitidoEn;
     final fecha = '${_dos(d.day)}/${_dos(d.month)}/${d.year}';
     final personas = t.personasEnEspera == 0
@@ -125,6 +125,13 @@ class ConstructorTicket {
 
     _bytes.addAll([0x1B, 0x40]);
     _bytes.addAll([0x1B, 0x74, Config.ticketTablaCodigos]);
+
+        if (logo != null) {
+      _bytes.addAll([0x1B, 0x61, 0x01]);
+      _bytes.addAll(logo);
+      _bytes.add(0x0A);
+      _vista.writeln('            [ LOGO ]');
+    }
 
     _linea('RED ECO DE LA MONTAÑA', negrita: true);
     _linea('S.C. de A.P. de R.L. de C.V.');

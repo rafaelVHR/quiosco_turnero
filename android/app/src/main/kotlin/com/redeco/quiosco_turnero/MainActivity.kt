@@ -15,11 +15,18 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import android.os.Bundle
+import android.view.WindowManager
 
 class MainActivity : FlutterActivity() {
     private val canal = "com.redeco.turnero/impresora"
     private val accionPermiso = "com.redeco.turnero.USB_PERMISO"
 
+        override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+    
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, canal)

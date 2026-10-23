@@ -59,6 +59,7 @@ flutter:
 
   assets:
     - assets/images/logo_redeco_provisional.png
+    - assets/images/icono_app.png
 
 flutter_launcher_icons:
   android: true

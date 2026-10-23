@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../config.dart';
 import '../models/turno.dart';
 import 'conexion_impresora.dart';
+import 'logo_ticket.dart';
 import 'ticket.dart';
 
 class ServicioImpresion {
@@ -14,7 +15,16 @@ class ServicioImpresion {
   static Future<void> imprimir(Turno turno) async {
     estado.value = 'Preparando ticket...';
     try {
-      final ticket = ConstructorTicket.construir(turno);
+      List<int>? logo;
+      if (Config.ticketLogo) {
+        try {
+          logo = await LogoTicket.cargar();
+        } catch (e) {
+          debugPrint('Ticket sin logo: $e');
+        }
+      }
+
+      final ticket = ConstructorTicket.construir(turno, logo: logo);
       if (Config.vistaPreviaTicket) {
         debugPrint('\n${ticket.vistaPrevia}');
       }
